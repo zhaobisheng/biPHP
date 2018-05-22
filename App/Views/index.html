@@ -1,0 +1,22 @@
+<{include 'header.html'}>
+
+    <table border="1" align="center" width="500">
+       <{ loop $users $user }>
+            <tr>    
+                <{loop $user $u }>
+                    
+                        <{if $u == "男" }>
+                            <td style="color:green">
+                        <{elseif $u == "女" }>
+                            <td style="color:red">
+                        <{else}>
+                            <td>
+                        <{/if}>
+
+                            <{$u}></td>                
+                <{/loop}>
+            </tr>
+        <{/loop}>
+    </table>
+
+<{include 'footer.html'}>
