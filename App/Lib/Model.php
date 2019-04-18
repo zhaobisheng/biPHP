@@ -6,10 +6,7 @@ class Model{
     public $db;
     public $limit;
     public $order;
-    public function test()
-    {
-        echo '11';
-    }
+
     public function tableName()
     {
         $className=__CLASS__;
@@ -17,19 +14,6 @@ class Model{
         echo $tables;
     }
     
-    public function primaryKey()
-    {
-        echo 'primaryKey';
-    }
-    public function get()
-    {
-        echo 'this is get';
-    }
-    
-    public function find()
-    {
-        echo 'this is find';
-    }
     public function order($order)
     {
         $this->order="  order by ".$order;
@@ -42,12 +26,11 @@ class Model{
     }
     public function findOne()
     {
-        $sql="select * from ".get_called_class()."  ".$this->condition." limit 1";
+        $sql="select * from ".get_called_class()."  ".$this->condition.$this->order." limit 1";
         return $GLOBALS['db']->fetch_one($sql);
     }
     public function findAll()
-    {       
-    
+    {           
         $sql="select * from ".get_called_class()."  ".$this->condition .$this->order. $this->limit;
         return $GLOBALS['db']->fetch_array($sql);
     }
@@ -65,6 +48,17 @@ class Model{
         }                 
         return $this;
     }
+    public function count()
+    {
+        $sql="select count(*) from ".get_called_class()."  ".$this->condition;
+        return $GLOBALS['db']->fetch_one_cell($sql);
+    }
+    public function sum($key='')
+    {
+        $sql="select sum(".$key.") from ".get_called_class()."  ".$this->condition;
+        echo $sql;
+        return $GLOBALS['db']->fetch_one_cell($sql);
+    }
     public  function update($arr='')
     {
         $sql="update ".get_called_class()." set ";
@@ -81,6 +75,10 @@ class Model{
         return $GLOBALS['db']->bi_query($sql);
     }
     
+    public function last_id()
+    {
+        return $GLOBALS['db']->last_id();
+    }
     
      public function insert($arr='')
     {
@@ -100,7 +98,7 @@ class Model{
             $keyName=substr($keyName,0,strrpos($keyName,',')).")"; 
             $valueName=substr($valueName,0,strrpos($valueName,',')).")"; 
         }
-        $sql.=$keyName.$center.$valueName;
+        $sql.=$keyName.$center.$valueName;        
         return $GLOBALS['db']->bi_query($sql);
     }
     

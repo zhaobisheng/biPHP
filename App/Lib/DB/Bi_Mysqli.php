@@ -38,6 +38,7 @@ class Bi_Mysqli {
     } 
 
     public function fetch_array($sql) {
+        
         $rs = $this->con->query($sql);
         while ($result[] = $rs->fetch_assoc()) {
         } 

@@ -7,12 +7,9 @@ class ToJSONResult {
         $this->result = array('code' => 200, 'msg' => 0);
     } 
     public function set($key, $value) {
-        if (isset($this->result[$key])) {
             $this->result[$key] = $value;
             return true;
-        } else {
-            return false;
-        } 
+         
     } 
     public function del($key) {
         if (isset($this->result[$key])) {

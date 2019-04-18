@@ -24,12 +24,12 @@ class AliSendSMS
 	$apiUrl = "http://dysmsapi.aliyuncs.com/?";
 	date_default_timezone_set("Etc/GMT");
 	$dateTimeFormat = 'Y-m-d\TH:i:s\Z'; // ISO8601规范  
-	$accessKeyId = 'xxxxxxxxx';      // 这里填写您的Access Key ID  
-	$accessKeySecret = 'xxxxxxxxx';  // 这里填写您的Access Key Secret  
+	$accessKeyId = 'xxxxx';      // 这里填写您的Access Key ID  
+	$accessKeySecret = 'xxxxxxx';  // 这里填写您的Access Key Secret  
 	$ParamString = "{\"code\":\"" . strval($this->pinCode) . "\"}";
 	$data = array(
 	    // 公共参数  
-	    'SignName' => 'xxxxx',    //这里填写您的短信接口签名名称
+	    'SignName' => 'xxxxx',
 	    'Format' => 'JSON',
 	    'Version' => '2017-05-25',
 	    'AccessKeyId' => $accessKeyId,
@@ -39,7 +39,7 @@ class AliSendSMS
 	    'Timestamp' => date($dateTimeFormat),
 	    // 接口参数  
         'Action' => 'SendSms',
-	    'TemplateCode' => 'SMS_xxxxxxx',   //这里填写您的短信模版ID
+	    'TemplateCode' => 'xxxx',
 	   'PhoneNumbers'=>$this->phoneNum,
         'TemplateParam'=>$ParamString
 	);
@@ -61,8 +61,7 @@ class AliSendSMS
 		    . '=' . $this->percentEncode($value);
 	}
 	// 生成用于计算签名的字符串 stringToSign  
-	$stringToSign = 'GET&%2F&' . $this->percentencode(substr($canonicalizedQueryString, 1));
-	//echo "<br>".$stringToSign."<br>";  
+	$stringToSign = 'GET&%2F&' . $this->percentencode(substr($canonicalizedQueryString, 1));;  
 	// 计算签名，注意accessKeySecret后面要加上字符'&'  
 	$signature = base64_encode(hash_hmac('sha1', $stringToSign, $accessKeySecret . '&', true));
 	return $signature;

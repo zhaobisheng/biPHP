@@ -4,7 +4,10 @@
  * 通过该类对象加载模板文件并解析，将解析后的结果输出
  */
 namespace App\Lib;
+// use App\Lib\Pattern;
 class Template {
+    public $cache_dir;
+    public $user_dir;
     public $template_dir = BI_ROOT . 'App/Views/' ; //定义模板文件存放的目录  
     public $compile_dir = BI_ROOT . 'App/Views/Cache/'; //定义通过模板引擎组合后文件存放目录
     public $source_dir = BI_ROOT . 'Public/'; //资源文件目录
@@ -21,9 +24,11 @@ class Template {
          */
         $this->left = preg_quote($this->left_delimiter, '/');
         $this->right = preg_quote($this->right_delimiter, '/');
-        
+        is_dir($this->compile_dir) OR mkdir($this->compile_dir, 0777, true);
     } 
-
+    public function setUserDir($dir) {
+        $this->user_dir = $dir ."/" ;
+    } 
     public function preg_callback($match) {
         $match_pattern = array(
             /**
@@ -39,12 +44,16 @@ class Template {
              */
             '/' . $this->left . '\s*include\s+[\"\']?(.+?)[\"\']?\s*' . $this->right . '/i'
             );
-
+        if ((memory_get_usage() / 1024 / 1024) > 50)die('view file error!');
         for($i = 0;$i < count($this->php_tag);$i++) {
             if (preg_match($match_pattern[$i], $match[0])) {
+                if ((memory_get_usage() / 1024 / 1024) > 50)die('view file error!');
                 if ($i == 0) {
                     return $this->stripvtags('<?php if(' . $match[1] . ') { ?> ' . $match[2] . ' <?php } ?>');
                 } elseif ($i == 1) {
+                    /**
+                     * return $this->stripvtags('<?php } elseif('.$match[1].') { ?>');
+                     */
                     return '<?php } elseif(' . $match[1] . ') { ?>';
                 } elseif ($i == 2) {
                     return file_get_contents($this->template_dir . "/$match[1]");
@@ -66,6 +75,20 @@ class Template {
             $this->tpl_vars[$tpl_var] = $value;
     } 
 
+    function mkParentDir($user_path){
+        $last_index=stripos($user_path, "/");
+        if ($last_index > 0) {           
+            $last_dir = substr($user_path, 0, $last_index);
+            $this->cache_dir=$this->cache_dir .'/'. $last_dir ;
+            if (!is_dir($this->compile_dir . $this->cache_dir)) {
+                mkdir($this->compile_dir . $this->cache_dir );
+            }
+            $user_path=substr($user_path,$last_index+1);
+            $this->mkParentDir($user_path);
+        }
+    }
+    
+    
     /**
      * 加载指定目录下的模板文件，并将替换后的内容生成组合文件存放到另一个指定目录下
      * 
@@ -75,17 +98,25 @@ class Template {
         /**
          * 到指定的目录中寻找模板文件
          */
-        $tplFile = $this->template_dir . '/' . $fileName;
+        $tplFile = $this->template_dir . $this->user_dir .'/' . $fileName;
         /**
          * 如果需要处理的模板文件不存在,则退出并报告错误
          */
         if (!file_exists($tplFile)) {
-            die("模板文件{$tplFile}不存在！");
+            $tplFile = $this->template_dir . $this->user_dir .'/' . lcfirst($fileName);
+            if (!file_exists($tplFile)) {
+                //die("书本文件{$tplFile}不存在！");
+                die("书本文件不存在！请联系站长!");
+            } 
         } 
         /**
          * 获取组合的模板文件，该文件中的内容都是被替换过的
          */
-        $comFileName = $this->compile_dir . "/BI_" . $fileName ;
+        $this->mkParentDir($this->user_dir);
+        if (!empty($this->user_dir) && !is_dir($this->compile_dir . $this->user_dir)) {
+            mkdir($this->compile_dir . $this->user_dir);
+        } 
+        $comFileName = $this->compile_dir . $this->user_dir .'/'. "/BI_" . $fileName ;
         /**
          * 判断替换后的文件是否存在或是存在但有改动，都需要重新创建
          */
@@ -104,8 +135,9 @@ class Template {
          * 包含处理后的模板文件输出给客户端
          */
         include($comFileName);
-        if(!$GLOBALS['templateCache']){unlink($comFileName);}
-        
+        if (!$GLOBALS['templateCache']) {
+            unlink($comFileName);
+        } 
     } 
 
     /**
@@ -121,9 +153,18 @@ class Template {
 
         $pattern = array(
             /**
+             * 匹配模板中变量 ,例如，"<{ $var['arr'] +*-/  $var['arr1'] }>"
+             */
+            '/' . $this->left . '\s*\$([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)(\[[\'\"0-9a-zA-Z_\x7f-\xff]*\])\s*([\+\-\*\/]+)\s*\$([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)(\[[\'\"0-9a-zA-Z_\x7f-\xff]*\])\s*' . $this->right . '/i',
+            /**
+             * 匹配模板中变量 ,例如，"<{ $var['arr'] }>"
+             */
+            '/' . $this->left . '\s*\$([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)(\[[\'\"0-9a-zA-Z_\x7f-\xff]*\])\s*' . $this->right . '/i',
+            /**
              * 匹配模板中变量 ,例如，"<{ $var }>"
              */
             '/' . $this->left . '\s*\$([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)\s*' . $this->right . '/i',
+
             /**
              * 匹配else标识符, 例如 "<{ else }>"
              */
@@ -133,11 +174,19 @@ class Template {
              */
             '/' . $this->left . '\s*loop\s+\$(\S+)\s+\$([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)\s*' . $this->right . '(.+?)' . $this->left . '\s*\/loop\s*' . $this->right . '/is',
             /**
-             * 用来遍历数组中的键和值,例如 "<{ loop $arrs as  $key to $value }> <{ /loop}>"
+             * 用来匹配模板中的loop标识符，用来遍历数组中的值,  例如 "<{ loop $arrs['key'] $value }> <{ /loop}>"
              */
+            '/' . $this->left . '\s*loop\s+\$([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)(\[[\'\"0-9a-zA-Z_\x7f-\xff]*\])\s+\$([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)\s*' . $this->right . '(.+?)' . $this->left . '\s*\/loop\s*' . $this->right . '/is',
+
+            /**
+             * 用来遍历数组中的键和值,例如 "<{ loop $arrs as  $key => $value }> <{ /loop}>"
+             */ 
+            // '/' . $this->left . '\s*loop\s+\$(\S+)\s+\$([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)\s*\=\>\s*\$(\S+)\s*' . $this->right . '(.+?)' . $this->left . '\s*\/loop \s*' . $this->right . '/is',
             '/' . $this->left . '\s*loop\s+\$(\S+)\s+as\s+\$([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)\s*\=\>\s*\$(\S+)\s*' . $this->right . '(.+?)' . $this->left . '\s*\/loop\s*' . $this->right . '/is',
-            '/' . $this->left . '\s*LoadJS\([\"\']?([0-9a-zA-Z_\/\.]*)[\"\']?\)\s*' . $this->right . '/is',
-            '/' . $this->left . '\s*LoadCSS\([\"\']?([0-9a-zA-Z_\/\.]*)[\"\']?\)\s*' . $this->right . '/is'
+            '/' . $this->left . '\s*LoadJS\([\"\']?([0-9a-zA-Z_\/\.\-]*)[\"\']?\)\s*' . $this->right . '/is',
+            '/' . $this->left . '\s*LoadCSS\([\"\']?([0-9a-zA-Z_\/\.\-]*)[\"\']?\)\s*' . $this->right . '/is',
+            '/' . $this->left . '\s*LoadRES\([\"\']?([0-9a-zA-Z_\/\.\-]*)\$([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)(\[[\'\"0-9a-zA-Z_\x7f-\xff]*\])[\"\']?\)\s*' . $this->right . '/is',
+            '/' . $this->left . '\s*LoadRES\([\"\']?([0-9a-zA-Z_\/\.\-]*)[\"\']?\)\s*' . $this->right . '/is',
             );
         $mix_pattern = array(
             /**
@@ -158,9 +207,18 @@ class Template {
          */
         $replacement = array(
             /**
+             * 替换模板中的变量 <?php echo $this->tpl_vars["var"]['aa'] * $this->tpl_vars["var"]['bb'];
+             */
+            '<?php echo $this->tpl_vars["${1}"]${2} ${3} $this->tpl_vars["${4}"]${5}; ?>',
+            /**
+             * 替换模板中的变量 <?php echo $this->tpl_vars["var"]['bb'];
+             */
+            '<?php echo $this->tpl_vars["${1}"]${2}; ?>',
+            /**
              * 替换模板中的变量 <?php echo $this->tpl_vars["var"];
              */
             '<?php echo $this->tpl_vars["${1}"]; ?>',
+
             /**
              * 替换else的字符串 <?php } else { ?>
              */
@@ -169,13 +227,19 @@ class Template {
              * 以下两条用来替换模板中的loop标识符为foreach格式
              */
             '<?php foreach($this->tpl_vars["${1}"] as $this->tpl_vars["${2}"]) { ?>${3}<?php } ?>',
-
+            /**
+             * 以下两条用来替换模板中的loop(含数组)标识符为foreach格式
+             */
+            '<?php foreach($this->tpl_vars["${1}"]${2} as $this->tpl_vars["${3}"]) { ?>${4}<?php } ?>',
             /**
              * '<?php print_r($this->tpl_vars["${1}"]);?>',
              */
             '<?php foreach($this->tpl_vars["${1}"] as $this->tpl_vars["${2}"] => $this->tpl_vars["${3}"]) { ?>${4}<?php } ?>',
             '<script src="' . $this->curPageURL() . '${1}" language="javascript"></script>',
-            '<link href="' . $this->curPageURL() . '${1}" rel="stylesheet" type="text/css" />'
+            '<link href="' . $this->curPageURL() . '${1}" rel="stylesheet" type="text/css" />',
+            $this->curPageURL() . '${1}<?php echo $this->tpl_vars["${2}"]${3}; ?>',
+            $this->curPageURL() . '${1}',
+
             );
 
         /**
@@ -185,8 +249,15 @@ class Template {
         $repContent = preg_replace($pattern, $replacement, $content);
         $repContent = preg_replace_callback($mix_pattern, array($this, "preg_callback"), $repContent);
         /**
+         * var_dump($pattern);
+         * echo "<br/>";
+         * var_dump($replacement);
+         * echo "<br/>";
+         * //var_dump($content);
+         * echo "<br/>";
          * /* 如果还有要替换的标识,递归调用自己再次替换
          */
+        if ((memory_get_usage() / 1024 / 1024) > 50)die('view file error!');
         if (preg_match('/' . $this->left . '([^(' . $this->right . ')]{1,})' . $this->right . '/', $repContent)) {
             $repContent = $this->tpl_replace($repContent);
         } 
@@ -206,6 +277,7 @@ class Template {
         /**
          * 匹配变量的正则
          */
+
         $var_pattern = '/\s*\$([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)\s*/is';
         /**
          * 将变量替换为值
@@ -213,7 +285,13 @@ class Template {
         $expr = preg_replace($var_pattern, '$this->tpl_vars["${1}"]', $expr);
         /**
          * 将处理后的条件语句相连后返回
+         * echo$this->tpl_vars["Username"]
          */
+        $echo_pattern = '/\s*echo\(\$([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*\-\>\S*)\s*\)/is';
+        if (preg_match($echo_pattern, $expr)) {
+            $expr = preg_replace($echo_pattern, '<?php  ${0} ?>', $expr); 
+            // return $this->stripvtags($expr);
+        } 
         return $expr;
     } 
 

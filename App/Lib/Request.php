@@ -29,5 +29,9 @@ class Request {
                 exit($key . ' Parameter not a numeric！');
             } 
         } 
-    } 
+    }
+    public static function redirect($url)
+    {
+        header("Location: /".$url);
+    }
 } 
