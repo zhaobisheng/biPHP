@@ -105,8 +105,7 @@ class Template {
         if (!file_exists($tplFile)) {
             $tplFile = $this->template_dir . $this->user_dir .'/' . lcfirst($fileName);
             if (!file_exists($tplFile)) {
-                //die("书本文件{$tplFile}不存在！");
-                die("书本文件不存在！请联系站长!");
+                die("{$tplFile}模版文件不存在！");
             } 
         } 
         /**
